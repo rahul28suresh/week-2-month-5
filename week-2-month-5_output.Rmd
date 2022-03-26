@@ -1,0 +1,131 @@
+---
+title: "Month 5 Week 2 Assignment 1"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## Task 1
+
+This is an R Markdown document describing the steps taken to complete the assignment from month 5, week 2 of the John Hopkins data science course. 
+
+The first step was to load the dataset form the file "activity" which was provided and clean it. The suitable libraries also need to be installed. 
+
+```{r cars, results = 'hide'}
+library(dplyr)
+library(ggplot2)
+fpath <- "C:/Users/sures/Documents/R/Coursera/Reproducible Research Month 5/Week 2/week-2-month-5"
+setwd(fpath)
+df <- na.omit(read.csv("activity.csv"))
+```
+
+## Task 2
+
+In order to complete the second task of making a histogram of the number of steps taken per day, the tapply function can be used to sort through the dataset. The correct data is then collected and stored in a new dataframe and a binwidth of 500 can be selected to give a clearer picture of the distribution of the data. By using the summary function, both the mean and the median of the data can be found quickly.  
+
+
+```{r histogram steps per day, echo=TRUE}
+days <- levels(factor(df$date))
+df$date <- as.Date(df$date, "%Y-%m-%d")
+
+data <- as.data.frame(with(df, tapply(steps, date, sum))) 
+data <- cbind(days, data)
+colnames(data) <- c("date", "steps")
+x <- ggplot(data, aes(x = steps)) +
+  geom_histogram(col = "blue", binwidth = 500) +
+  geom_vline(aes(xintercept = mean(steps), col = "red", linetype = "dashed")) +
+  theme(legend.position = "none")
+print(x)
+print(summary(data))
+```
+
+## Task 3
+With the dataset which has already been imported, tapply can be modified  to calculate mean steps per interval for each date. We can then plot the output of tapply with interval to get a time series plot. The two numbers printed below are the highest mean number of steps in a five minute interval and average number of steps over all intervals.
+
+```{r time series plot, echo=TRUE}
+interval <- as.numeric(levels(factor(df$interval)))
+
+data <- as.data.frame(with(df, tapply(steps, interval, mean))) 
+data <- cbind(interval, data)
+
+colnames(data) <- c("interval", "steps")
+max_step <- max(data$steps)
+mean_step <- mean(data$steps)
+
+
+x <- ggplot(data, aes(x = interval, y = steps, group = 1, alpha = 0.5)) +
+  geom_point() + geom_hline(yintercept = max_step, linetype = "dashed", color = "blue") +
+  geom_hline(yintercept = mean_step, linetype = "dashed", color = "red")
+  theme(legend.position = "none")
+
+print(x)
+tab <- table(max_step, mean_step)
+print(tab)
+
+```
+
+## Task 4
+Inputting a representative value in existing missing data will give a more complete picture of the dataset if done properly. However, there were days in the data which had no data associated with it. So, the average of each day could not be used as there would still be days with missing data. It was decided to use the average of the whole dataset.The first and third quartile have increased. On the histogram, the density of the mean number of steps seen on the y axis, 10766, has also increased. 
+
+
+```{r inputting missing data}
+df <- read.csv("activity.csv")
+num_na <- sum(is.na(df$steps))
+x <- df$steps
+
+df$steps[is.na(df$steps)] <- mean(df$steps, na.rm = TRUE)
+ 
+data <- as.data.frame(with(df, tapply(steps, date, sum))) 
+days <- as.Date(levels(factor(df$date)))
+
+data <- cbind(days, data)
+colnames(data) <- c("date", "steps")
+print(summary(data))
+g <- ggplot(data, aes(x = steps)) +
+  geom_histogram(col = "Blue", fill = "white", bins = 30) +
+  geom_density(alpha = 0.2, fill = "#FF6666") 
+
+print(g+geom_vline(aes(xintercept=mean(steps)), col = "red"))
+
+print(c(num_na))
+
+```
+
+## Task 5
+Using the weekdays() function, we can determine if a date falls on a weekday or weekend. We can the create a new column of data with dplyr from the dataset made in the previous task. Like in task 3, we can use tapply to find the average number of steps per interval and plot using ggplot. We also need the package ggpubr to arrange the plots clearly. We can see that on averege, more steps were taken on weekends compared to weekdays whcih is logical.   
+```{r weekdays and weekend time series plot}
+library(ggpubr)
+df$interval <- levels(factor(df$interval))
+df <- mutate(df, date = as.Date(date))
+df <- mutate(df, date_type = weekdays(date))
+
+'%!in%' <- Negate('%in%')
+weekend <- subset(df, subset = df$date_type %in% c("Saturday", "Sunday"))
+weekend <- as.data.frame(tapply(weekend$steps, weekend$interval, mean))
+
+weekday <- subset(df, subset = df$date_type %!in% c("Saturday", "Sunday"))
+weekday <- as.data.frame(tapply(weekday$steps, weekday$interval, mean))
+
+interval <- as.numeric(levels(factor(df$interval)))
+data <- cbind(interval, weekday, weekend)
+colnames(data) <- c("interval", "weekday", "weekend")
+weekend_steps <- mean(data$weekend)
+weekday_steps <- mean(data$weekday)
+
+
+g1 <- ggplot(data, aes(x = interval, y = weekend, alpha = 0.5)) +
+  geom_point()+ theme(legend.position = "none") + ggtitle("Weekend") + 
+  geom_hline(yintercept = weekend_steps, colour = "blue", linetype = "dashed") +
+  ylim(0, 200)
+
+g2 <- ggplot(data, aes(x = interval, y = weekday, alpha = 0.5)) +
+  geom_point()+ theme(legend.position = "none") + ggtitle("Weekday") +
+  geom_hline(yintercept = weekday_steps, colour = "red", linetype = "dashed") +
+  scale_x_continuous(breaks = seq(0, 2500, 500))
+x <- ggarrange(g1, g2) 
+print(x)
+
+```
+Note that the `echo = FALSE` parameter was added to the code chunk to prevent printing of the R code that generated the plot.
